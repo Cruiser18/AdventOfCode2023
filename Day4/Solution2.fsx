@@ -22,31 +22,26 @@ let copiesFromCard (card:Card) =
         ) 0 card.Numbers
     [|for i in card.CardNumber + 1 .. card.CardNumber + points -> i|]
 
-let testCard1 = lineToCard "Card 1: 41 48 83 86 17 | 83 86  6 31 17  9 48 53"
-let testCard2 = lineToCard "Card 1: 41 48 83 86 17 | 83 86  6 31 17  9 48 53"
+let cardRows = Array.map lineToCard lines
 
-let array1 = copiesFromCard testCard1
-let array2 = copiesFromCard testCard2
+let result cardRows =
+    let rec iterateOverRows (lines: Card array) (copiesArray:int array) (acc:int) =
+        match lines with
+        | [||] -> acc
+        | _ ->
+            let firstLineArray = 
+                let first = Array.head lines
+                [|first|]
 
-let findDuplicates (arr: int array) =
-    let rec findDuplicatesHelper (input: int list) (seen: Set<int>) (result: int list) =
-        match input with
-        | [] -> result
-        | x :: xs ->
-            if Set.contains x seen then
-                findDuplicatesHelper xs seen (x :: result)
-            else
-                findDuplicatesHelper xs (Set.add x seen) result
-
-    findDuplicatesHelper (List.ofArray arr) Set.empty []
-
-let testArray = Array.concat [|array1;array2|] |> Array.groupBy (fun x -> x) 
-
-
-
-let cardRow = Array.map lineToCard lines
-
-
-
-let pointsForCards = Array.map copiesFromCard cardRow
-Array.sum pointsForCards 
+            let count = 
+                let matchingNumbers = Array.where (fun x -> x = (Array.head lines).CardNumber) copiesArray
+                Array.length matchingNumbers + 1
+            // printfn "%A" count
+            let newCopiesArray = 
+                [|for i in 1 .. count -> Array.collect copiesFromCard firstLineArray|]
+                |> Array.concat
+                |> Array.append copiesArray
+            // printfn "NewCopies: %A" newCopiesArray
+            iterateOverRows (Array.tail lines) newCopiesArray (acc + count)
+    iterateOverRows cardRows [||] 0
+result cardRows // Answer is 11024379
