@@ -1,21 +1,17 @@
 open System.IO
 
-let lines = File.ReadAllLines("Day5/testInput.txt")
+let lines = File.ReadAllLines("Day5/input.txt")
 
 type MappingInput = {
-    SourceRangeStart: int
-    DestinationRangeStart: int
-    RangeLength: int
+    SourceRangeStart: float
+    DestinationRangeStart: float
+    RangeLength: float
 }
 
-type InputSeed = InputSeed of int
-
-// mappingDifference = MappingInput.sourceRangeStart - MappingInput.destinationRangeStart
-// numbers range mapping rule apply to =  MappingInput.sourceRangeStart + MappingInput.RangeLength 
-// outputSeed = inputSeed - mappingDifference
+type InputSeed = InputSeed of float
 
 let rawSeedLine = Array.head lines
-let seeds = ((rawSeedLine.Split(":").[1]).Trim()).Split(" ") |> Array.map (fun x -> InputSeed (int x))
+let seeds = ((rawSeedLine.Split(":").[1]).Trim()).Split(" ") |> Array.map (fun x -> InputSeed (float x))
 let getMapping (lines:string array) (searchTerm:string) =
     let splitIndex = lines |> Array.findIndex (fun x -> x = searchTerm) |> (+) 1
     let splitLines = (Array.splitAt splitIndex lines).Item2
@@ -29,15 +25,21 @@ let getMapping (lines:string array) (searchTerm:string) =
                 else
                 findEndIndex (Array.tail line) (index + 1)
         findEndIndex splitLines 0
+    printfn "StartIndex: %A" startIndex
+    printfn "EndIndex: %A" endIndex
+    printfn "SplitLines: %A" splitLines
+    printfn "SplitLinesLength: %A" splitLines.Length
     Array.sub splitLines startIndex endIndex
-
     |> Array.map (fun x ->
+        // printfn "Mapping: %A" x
         let split = x.Split(" ")
-        let sourceRangeStart = split.[0].Trim() |> int
-        let destinationRangeStart = split.[1].Trim() |> int
-        let rangeLength = split.[2].Trim() |> int
+        printfn "Split: %A" split
+        let sourceRangeStart = split.[1].Trim() |> float
+        let destinationRangeStart = split.[0].Trim() |> float
+        let rangeLength = split.[2].Trim() |> float
         { SourceRangeStart = sourceRangeStart; DestinationRangeStart = destinationRangeStart; RangeLength = rangeLength }
     )
+
 
 let soilLines = getMapping lines "seed-to-soil map:"
 let fertilizerLine = getMapping lines "soil-to-fertilizer map:"
@@ -47,34 +49,41 @@ let temperatureLine = getMapping lines "light-to-temperature map:"
 let humidityLine = getMapping lines "temperature-to-humidity map:"
 let locationLine = getMapping lines "humidity-to-location map:"
 
-// let allLines = Array.concat [|soilLines; fertilizerLine; waterLine; lightLine; temperatureLine; humidityLine; locationLine|]
+let calculateMapping (mappingInput:MappingInput array) (inputSeed:InputSeed) =
+    // printfn "MappingInput: %A" mappingInput
+    // printfn "InputSeed: %A" inputSeed
+    
+    let matchingItem = 
+        Array.where (fun x -> 
+            let sourceMin = x.SourceRangeStart
+            let sourceMax = x.SourceRangeStart + x.RangeLength - float 1
+            // printfn "SourceMin: %A" sourceMin
+            // printfn "SourceMax: %A" sourceMax
+            match inputSeed with
+            | InputSeed x when x >= sourceMin && x <= sourceMax -> true
+            | _ -> false
+            ) mappingInput
+    
+    let mappedDifference =
+        match matchingItem with
+        | [| |] -> float 0
+        | _ -> matchingItem.[0].SourceRangeStart - matchingItem.[0].DestinationRangeStart
 
-let calculateMapping (mappingInput:MappingInput) (inputSeed:InputSeed) =
-    printfn "MappingInput: %A" mappingInput
-    printfn "InputSeed: %A" inputSeed
-    let mappedDifference = mappingInput.SourceRangeStart - mappingInput.DestinationRangeStart
-    let sourceMin = mappingInput.SourceRangeStart
-    let sourceMax = mappingInput.SourceRangeStart + mappingInput.RangeLength - 1
     match inputSeed with
-    | InputSeed x when x >= sourceMin && x <= sourceMax -> 
-        printfn "sourceMin: %A" sourceMin
-        printfn "sourceMax: %A" sourceMax
-        printfn "Mapped: %A" (x - mappedDifference)
-        Some (x - mappedDifference)
-    | _ -> 
-        printfn "Output is Same: A"
-        None
+    | InputSeed x -> InputSeed (x - mappedDifference)
 
-// foreach line in soilLines, match the inputSeed against it. If the Inputseed falls outside the range of the rule, return the inputSeed
-Array.map (fun soilLine -> 
-    calculateMapping soilLine (InputSeed 1)
-) soilLines
-|> Array.filter (fun (x:option<int>) -> x.IsSome)
-
-
-// let mappedSeeds = 
-//     Array.map (fun seed -> 
-//         Array.map (fun line -> 
-//                 calculateMapping line seed
-//         ) allLines
-//     ) seeds
+let result = 
+    Array.map (fun x ->
+        calculateMapping soilLines x
+        |> calculateMapping fertilizerLine
+        |> calculateMapping waterLine
+        |> calculateMapping lightLine
+        |> calculateMapping temperatureLine
+        |> calculateMapping humidityLine
+        |> calculateMapping locationLine
+        ) seeds
+    |> Array.minBy (fun x -> 
+        match x with
+        | InputSeed x -> x
+        )
+printfn "Result: %A" result // Result was 173706076
