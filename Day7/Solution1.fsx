@@ -1,7 +1,5 @@
 open System.IO
 
-let lines = File.ReadAllLines("Day7/testInput.txt")
-
 type Hand = { Hand: string; Bid: int }
 
 // Input is something like:
@@ -17,12 +15,6 @@ type Hand = { Hand: string; Bid: int }
 
 // I must sort all the hands along with their Bid in order of strength
 // Then I can multiply each hand by its bid and sum them all up
-
-let hands = 
-    Array.map (fun (x:string) -> 
-        let firstAndSecond = x.Split(" ")
-        { Hand = firstAndSecond[0]; Bid = int firstAndSecond[1] }
-        ) lines
 
 let isFiveOfAKind (input: string) =
     let firstChar = input.[0]
@@ -87,15 +79,6 @@ let isHighCard (input: string) =
     let distinctChars = input |> Seq.distinct
     Seq.length distinctChars = Seq.length input
 
-let getCardStrength (x:char) =
-    match x with
-    | 'A' -> 14
-    | 'K' -> 13
-    | 'Q' -> 12
-    | 'J' -> 11
-    | 'T' -> 10
-    | _ -> int x - 48
-
 
 type HandTypes = 
     | FiveOfAKind
@@ -122,8 +105,9 @@ let getHandStrength (hand:string) =
     let handStrength = 
         let handmatch = matchHand hand
         match handmatch with
-        | FiveOfAKind -> 6
-        | FourOfAKind -> 5
+        | FiveOfAKind -> 7
+        | FourOfAKind -> 6
+        | FullHouse -> 5
         | ThreeOfAKind -> 4
         | TwoPairs -> 3
         | OnePair -> 2
@@ -131,17 +115,52 @@ let getHandStrength (hand:string) =
         | _ -> 0
     handStrength
 
-hands |> Array.sortInPlaceWith (fun (x:Hand) (y:Hand) -> 
-    let xStrength = x.Hand |> getHandStrength
-    let yStrength = y.Hand |> getHandStrength
-    let c = compare xStrength yStrength
-    if c <> 0 then c else
-    
-    let rec findGreater (x:string) (y:string) =
-        let xStrength = getCardStrength (Seq.head x)
-        let yStrength = getCardStrength (Seq.head y)
-        let c = compare xStrength yStrength
-        if c <> 0 then c else findGreater (string (Seq.tail x)) (string (Seq.tail y))
+let lines = File.ReadAllLines("Day7/testInput.txt")
 
-    findGreater x.Hand y.Hand
+let hands = 
+    Array.map (fun (x:string) -> 
+        let firstAndSecond = x.Split(" ")
+        { Hand = firstAndSecond[0]; Bid = int firstAndSecond[1] }
+        ) lines
+
+let result:Hand array = 
+    hands 
+    |> Array.sortInPlaceWith (fun (x:Hand) (y:Hand) -> 
+        let xStrength = x.Hand |> getHandStrength
+        let yStrength = y.Hand |> getHandStrength
+        let c = compare xStrength yStrength
+        if c <> 0
+        then 
+            c 
+        elif x.Hand = y.Hand then 0        
+        else
+            let getCardStrength (x:char) =
+                match x with
+                | 'A' -> 14
+                | 'K' -> 13
+                | 'Q' -> 12
+                | 'J' -> 11
+                | 'T' -> 10
+                | _ -> int x - 48
+            let rec findGreater (input:(char*char) array) =
+                let x, y = input |> Array.head
+                let xStrength = getCardStrength x
+                let yStrength = getCardStrength y
+                printfn "x: %A, y: %A" xStrength yStrength
+                let c = compare xStrength yStrength
+                if c <> 0 then c else findGreater (input |> Array.tail)
+            let zipped = 
+                seq y.Hand
+                |> Seq.zip x.Hand
+                |> Seq.toArray
+            findGreater zipped
     )
+    hands
+let rec calculate (acc:int) (x:Hand list) (index:int) =
+    match x with
+    | [] -> acc
+    | head::tail ->
+        let newAcc = head.Bid * index
+        calculate (acc + newAcc) tail (index + 1)
+let finalResult = calculate 0 (Array.toList result) 1
+finalResult // 250602641 is the right answer
